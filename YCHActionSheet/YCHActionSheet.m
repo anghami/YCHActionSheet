@@ -31,23 +31,22 @@
 #pragma GCC diagnostic ignored "-Wundeclared-selector"
 
 #import "YCHActionSheet.h"
+#import <sys/utsname.h>
 
 #pragma mark - 
 #pragma mark Static values
 
-#define kYCHActionSheetDefaultBackgroundColor   [UIColor colorWithWhite:0.97 alpha:1.0]
-
 static NSTimeInterval const kYCHActionSheetAnimationDuration  =   0.5;
 static CGFloat const kYCHActionSheetBackgroundAlpha           =   0.4;
-static CGFloat const kYCHActionSheetSectionCornerRadius       =   3.0;
+static CGFloat const kYCHActionSheetSectionCornerRadius       =   15.0;
 
 #pragma mark - Functions
 
 void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
 {
     CGFloat colors [] = {
-        0.90, 0.90, 0.90, 1.0,
-        0.75, 0.75, 0.75, 1.0,
+        0.4, 0.4, 0.4, 0.7,
+        0.4, 0.4, 0.4, 0.7,
     };
     
     CGColorSpaceRef baseSpace = CGColorSpaceCreateDeviceRGB();
@@ -321,6 +320,7 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
     [_upperView addSubview:self.cancelButton];
     [_upperView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[cancel]|" options:0 metrics:nil views:@{@"cancel":self.cancelButton}]];
     [_upperView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[cancel]|" options:0 metrics:nil views:@{@"cancel":self.cancelButton}]];
+    [_upperView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[cancel(58)]" options:0 metrics:nil views:@{@"cancel":self.cancelButton}]];
     [_upperView layoutIfNeeded];
     
     // add a scrollView
@@ -353,6 +353,18 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
         sectionView.layer.cornerRadius = kYCHActionSheetSectionCornerRadius;
         sectionView.layer.masksToBounds = YES;
         sectionView.translatesAutoresizingMaskIntoConstraints = NO;
+        UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleExtraLight];
+        UIVisualEffectView *blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+        blurEffectView.translatesAutoresizingMaskIntoConstraints = NO;
+        [sectionView addSubview:blurEffectView];
+        [sectionView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[blur]|"
+                                                                            options:0
+                                                                            metrics:nil
+                                                                              views:@{@"blur":blurEffectView}]];
+        [sectionView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[blur]|"
+                                                                            options:0
+                                                                            metrics:nil
+                                                                              views:@{@"blur":blurEffectView}]];
         [_contentView addSubview:sectionView];
         [_contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[section]|"
                                                                              options:0
@@ -375,7 +387,7 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
         {
             // hack : wrap UILabel around an UIView to prevent the previous ugly animation during device rotation
             UIView *titleView = [UIView new];
-            titleView.backgroundColor = kYCHActionSheetDefaultBackgroundColor;
+            titleView.backgroundColor = [UIColor clearColor];
             titleView.translatesAutoresizingMaskIntoConstraints = NO;
             [sectionView addSubview:titleView];
             [titleView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[titleView(45)]"
@@ -414,6 +426,7 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
             [button addTarget:self action:@selector(buttonWasTouched:) forControlEvents:UIControlEventTouchUpInside];
             [sectionView addSubview:button];
             [sectionView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[button]|" options:0 metrics:nil views:@{@"button":button}]];
+            [sectionView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[button(58)]" options:0 metrics:nil views:@{@"button":button}]];
             
             if (!previousButton)
             {
@@ -459,10 +472,14 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
     NSString *cancelTitle = self.cancelButtonTitle ?: @"Cancel";
     self.cancelButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.cancelButton.contentEdgeInsets = UIEdgeInsetsMake(10, 0, 10, 0);
-    [self.cancelButton setBackgroundColor:kYCHActionSheetDefaultBackgroundColor];
-    NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:cancelTitle
+    [self.cancelButton setBackgroundColor:[UIColor whiteColor]];
+    NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:cancelTitle
                                                                      attributes:@{NSFontAttributeName:[UIFont boldSystemFontOfSize:21.0]}];
+    
+    UIColor * textColor = [UIColor colorWithRed:0 green:.35 blue:1 alpha:1];
+    [attributed addAttribute:NSForegroundColorAttributeName value:textColor range:NSMakeRange(0, cancelTitle.length)];
     [self.cancelButton setAttributedTitle:attributed forState:UIControlStateNormal];
+    
     self.cancelButton.layer.cornerRadius = kYCHActionSheetSectionCornerRadius;
 }
 
@@ -643,7 +660,7 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
     self.titleLabel.text = self.title;
     self.titleLabel.textColor = [UIColor grayColor];
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
-    self.titleLabel.backgroundColor = kYCHActionSheetDefaultBackgroundColor;
+    self.titleLabel.backgroundColor = [UIColor clearColor];
     self.titleLabel.userInteractionEnabled = YES;
 }
 
@@ -658,13 +675,15 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
 
         NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:buttonTitle
                                                                                        attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:21.0]}];
+        UIColor * textColor = [UIColor colorWithRed:0 green:.35 blue:1 alpha:1];
         if (self.isDestructiveSection)
         {
-            [attributed addAttribute:NSForegroundColorAttributeName value:[UIColor redColor] range:NSMakeRange(0, buttonTitle.length)];
+            textColor = [UIColor redColor];
         }
+        [attributed addAttribute:NSForegroundColorAttributeName value:textColor range:NSMakeRange(0, buttonTitle.length)];
         
         [button setAttributedTitle:attributed forState:UIControlStateNormal];
-        [button setBackgroundColor:kYCHActionSheetDefaultBackgroundColor];
+        [button setBackgroundColor:[UIColor clearColor]];
         
         [_mutableButtons addObject:button];
     }
