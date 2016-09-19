@@ -111,6 +111,163 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
 
 @end
 
+#pragma mark - YCHActionSheetSection implementation
+
+@interface YCHActionSheetSection ()
+{
+    NSMutableArray *_mutableButtonTitles;
+    NSMutableArray *_mutableButtons;
+}
+
+@property (weak, nonatomic, readwrite) YCHActionSheet *actionSheet;
+
+@property (strong, nonatomic, readwrite) YCHLabel *titleLabel;
+@property (assign, nonatomic, readwrite, getter = isDestructiveSection) BOOL destructiveSection;
+
+@end
+
+@implementation YCHActionSheetSection
+
+#pragma mark - Life cycle methods
+
+- (instancetype)initWithTitle:(NSString *)title destructive:(BOOL)destructive firstButtonTitle:(NSString *)firstButtonTitle otherButtonsTitles:(va_list)otherButtonTitles
+{
+    if (self = [super init])
+    {
+        _title = title;
+        _destructiveSection = destructive;
+        
+        _mutableButtonTitles = [NSMutableArray array];
+        for (NSString *arg = firstButtonTitle; arg != nil; arg = va_arg(otherButtonTitles, NSString *))
+        {
+            [_mutableButtonTitles addObject:arg];
+        }
+        
+        [self setupTitleLabel];
+        [self setupButtons];
+    }
+    return self;
+}
+
+- (instancetype)initWithTitle:(NSString *)title destructive:(BOOL)destructive otherButtonTitles:(NSString *)otherButtonTitles, ...
+{
+    va_list args;
+    va_start(args, otherButtonTitles);
+    self = [self initWithTitle:title destructive:destructive firstButtonTitle:otherButtonTitles otherButtonsTitles:args];
+    va_end(args);
+    return self;
+}
+
+- (instancetype)initWithTitle:(NSString *)title otherButtonTitles:(NSString *)otherButtonTitles, ...
+{
+    va_list args;
+    va_start(args, otherButtonTitles);
+    self = [self initWithTitle:title destructive:NO firstButtonTitle:otherButtonTitles otherButtonsTitles:args];
+    va_end(args);
+    return self;
+}
+
++ (instancetype)sectionWithTitle:(NSString *)title otherButtonTitles:(NSString *)otherButtonTitles, ...
+{
+    va_list args;
+    va_start(args, otherButtonTitles);
+    YCHActionSheetSection *sheet = [[self alloc] initWithTitle:title destructive:NO firstButtonTitle:otherButtonTitles otherButtonsTitles:args];
+    va_end(args);
+    return sheet;
+}
+
++ (instancetype)destructiveSectionWithTitle:(NSString *)title
+{
+    return [[self alloc] initWithTitle:nil destructive:YES otherButtonTitles:title, nil];
+}
+
+#pragma mark - Custom getters / setters
+
+- (void)setTitle:(NSString *)title
+{
+    _title = title;
+    [self setupTitleLabel];
+}
+
+- (NSArray *)buttonTitles
+{
+    return [_mutableButtonTitles copy];
+}
+
+- (void)setButtonTitles:(NSArray *)buttonTitles
+{
+    _mutableButtonTitles = [buttonTitles mutableCopy];
+    [self setupButtons];
+}
+
+- (NSArray *)buttons
+{
+    return [_mutableButtons copy];
+}
+
+#pragma mark - Public methods
+
+- (NSInteger)addButtonWithTitle:(NSString *)title
+{
+    if (self.actionSheet.isVisible)
+    {
+        NSLog(@"YCHActionSheetSection error - You cannot add a button title when action sheet is already visible");
+        return -1;
+    }
+    
+    [_mutableButtonTitles addObject:title];
+    [self setupButtons];
+    return _mutableButtonTitles.count-1;
+}
+
+- (NSString *)buttonTitleAtIndex:(NSInteger)index
+{
+    return _mutableButtonTitles[index];
+}
+
+#pragma mark - Setup UI methods
+
+- (void)setupTitleLabel
+{
+    if (!self.title)
+        return;
+    
+    self.titleLabel = [[YCHLabel alloc] init];
+    self.titleLabel.font = [UIFont systemFontOfSize:13.0];
+    self.titleLabel.text = self.title;
+    self.titleLabel.textColor = [UIColor grayColor];
+    self.titleLabel.textAlignment = NSTextAlignmentCenter;
+    self.titleLabel.backgroundColor = [UIColor clearColor];
+    self.titleLabel.userInteractionEnabled = YES;
+}
+
+- (void)setupButtons
+{
+    _mutableButtons = [NSMutableArray array];
+    for (NSString *buttonTitle in _mutableButtonTitles)
+    {
+        YCHButton *button = [YCHButton buttonWithType:UIButtonTypeSystem];
+        button.contentEdgeInsets = UIEdgeInsetsMake(10, 0, 10, 0);
+        button.showBottomLine = buttonTitle != _mutableButtonTitles.lastObject;
+        
+        NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:buttonTitle
+                                                                                       attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:21.0]}];
+        UIColor * textColor = [UIColor colorWithRed:0 green:.35 blue:1 alpha:1];
+        if (self.isDestructiveSection)
+        {
+            textColor = [UIColor redColor];
+        }
+        [attributed addAttribute:NSForegroundColorAttributeName value:textColor range:NSMakeRange(0, buttonTitle.length)];
+        
+        [button setAttributedTitle:attributed forState:UIControlStateNormal];
+        [button setBackgroundColor:[UIColor clearColor]];
+        
+        [_mutableButtons addObject:button];
+    }
+}
+
+@end
+
 #pragma mark - YCHActionSheet implementation
 
 @interface YCHActionSheet ()
@@ -530,163 +687,6 @@ void YCHDrawBottomGradientLine(CGContextRef context, CGRect rect, CGFloat width)
     _contentView.frame = contentViewFrame;
     
     _scrollView.contentSize = _contentView.frame.size;
-}
-
-@end
-
-#pragma mark - YCHActionSheetSection implementation
-
-@interface YCHActionSheetSection ()
-{
-    NSMutableArray *_mutableButtonTitles;
-    NSMutableArray *_mutableButtons;
-}
-
-@property (weak, nonatomic, readwrite) YCHActionSheet *actionSheet;
-
-@property (strong, nonatomic, readwrite) YCHLabel *titleLabel;
-@property (assign, nonatomic, readwrite, getter = isDestructiveSection) BOOL destructiveSection;
-
-@end
-
-@implementation YCHActionSheetSection
-
-#pragma mark - Life cycle methods
-
-- (instancetype)initWithTitle:(NSString *)title destructive:(BOOL)destructive firstButtonTitle:(NSString *)firstButtonTitle otherButtonsTitles:(va_list)otherButtonTitles
-{
-    if (self = [super init])
-    {
-        _title = title;
-        _destructiveSection = destructive;
-        
-        _mutableButtonTitles = [NSMutableArray array];
-        for (NSString *arg = firstButtonTitle; arg != nil; arg = va_arg(otherButtonTitles, NSString *))
-        {
-            [_mutableButtonTitles addObject:arg];
-        }
-        
-        [self setupTitleLabel];
-        [self setupButtons];
-    }
-    return self;
-}
-
-- (instancetype)initWithTitle:(NSString *)title destructive:(BOOL)destructive otherButtonTitles:(NSString *)otherButtonTitles, ...
-{
-    va_list args;
-    va_start(args, otherButtonTitles);
-    self = [self initWithTitle:title destructive:destructive firstButtonTitle:otherButtonTitles otherButtonsTitles:args];
-    va_end(args);
-    return self;
-}
-
-- (instancetype)initWithTitle:(NSString *)title otherButtonTitles:(NSString *)otherButtonTitles, ...
-{
-    va_list args;
-    va_start(args, otherButtonTitles);
-    self = [self initWithTitle:title destructive:NO firstButtonTitle:otherButtonTitles otherButtonsTitles:args];
-    va_end(args);
-    return self;
-}
-
-+ (instancetype)sectionWithTitle:(NSString *)title otherButtonTitles:(NSString *)otherButtonTitles, ...
-{
-    va_list args;
-    va_start(args, otherButtonTitles);
-    YCHActionSheetSection *sheet = [[self alloc] initWithTitle:title destructive:NO firstButtonTitle:otherButtonTitles otherButtonsTitles:args];
-    va_end(args);
-    return sheet;
-}
-
-+ (instancetype)destructiveSectionWithTitle:(NSString *)title
-{
-    return [[self alloc] initWithTitle:nil destructive:YES otherButtonTitles:title, nil];
-}
-
-#pragma mark - Custom getters / setters
-
-- (void)setTitle:(NSString *)title
-{
-    _title = title;
-    [self setupTitleLabel];
-}
-
-- (NSArray *)buttonTitles
-{
-    return [_mutableButtonTitles copy];
-}
-
-- (void)setButtonTitles:(NSArray *)buttonTitles
-{
-    _mutableButtonTitles = [buttonTitles mutableCopy];
-    [self setupButtons];
-}
-
-- (NSArray *)buttons
-{
-    return [_mutableButtons copy];
-}
-
-#pragma mark - Public methods
-
-- (NSInteger)addButtonWithTitle:(NSString *)title
-{
-    if (self.actionSheet.isVisible)
-    {
-        NSLog(@"YCHActionSheetSection error - You cannot add a button title when action sheet is already visible");
-        return -1;
-    }
-    
-    [_mutableButtonTitles addObject:title];
-    [self setupButtons];
-    return _mutableButtonTitles.count-1;
-}
-
-- (NSString *)buttonTitleAtIndex:(NSInteger)index
-{
-    return _mutableButtonTitles[index];
-}
-
-#pragma mark - Setup UI methods
-
-- (void)setupTitleLabel
-{
-    if (!self.title)
-        return;
-    
-    self.titleLabel = [[YCHLabel alloc] init];
-    self.titleLabel.font = [UIFont systemFontOfSize:13.0];
-    self.titleLabel.text = self.title;
-    self.titleLabel.textColor = [UIColor grayColor];
-    self.titleLabel.textAlignment = NSTextAlignmentCenter;
-    self.titleLabel.backgroundColor = [UIColor clearColor];
-    self.titleLabel.userInteractionEnabled = YES;
-}
-
-- (void)setupButtons
-{
-    _mutableButtons = [NSMutableArray array];
-    for (NSString *buttonTitle in _mutableButtonTitles)
-    {
-        YCHButton *button = [YCHButton buttonWithType:UIButtonTypeSystem];
-        button.contentEdgeInsets = UIEdgeInsetsMake(10, 0, 10, 0);
-        button.showBottomLine = buttonTitle != _mutableButtonTitles.lastObject;
-
-        NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:buttonTitle
-                                                                                       attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:21.0]}];
-        UIColor * textColor = [UIColor colorWithRed:0 green:.35 blue:1 alpha:1];
-        if (self.isDestructiveSection)
-        {
-            textColor = [UIColor redColor];
-        }
-        [attributed addAttribute:NSForegroundColorAttributeName value:textColor range:NSMakeRange(0, buttonTitle.length)];
-        
-        [button setAttributedTitle:attributed forState:UIControlStateNormal];
-        [button setBackgroundColor:[UIColor clearColor]];
-        
-        [_mutableButtons addObject:button];
-    }
 }
 
 @end
